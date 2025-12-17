@@ -3,6 +3,9 @@
 地震情報の監視と通知、およびWEBサイトの死活監視を行うLINE Botです。
 FastAPIで動作し、Cloud Scheduler等から定期実行されることを想定しています。
 
+
+<img src="images/meerkat.jpg" width="100">
+
 ## 🚀 機能 (Features)
 
 ### 1. 🌏 地震速報 (Earthquake Notification)
