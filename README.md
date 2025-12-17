@@ -77,8 +77,9 @@ LINE通知のサンプル画像です。
 <img src="./images/sample.png" width="300" alt="通知サンプル">
 
 
-## [通知サンプル](mock_notification.py)
+## [地震通知サンプル](mock_notification.py)
 
+## [監視通知サンプル](mock_health_check.py)
 
 ## 📄 ライセンス
 MIT License
