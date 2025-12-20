@@ -3,3 +3,4 @@ uvicorn==0.38.0
 requests==2.32.3
 line-bot-sdk==3.21.0
 python-dotenv==1.0.1
+pytest==8.0.0

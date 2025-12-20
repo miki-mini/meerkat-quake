@@ -49,10 +49,26 @@ pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-## 📂 構成
-- `main.py`: アプリケーション本体
+## 📂 構成 (Structure)
+- `app/`: アプリケーションのソースコード
+  - `main.py`: FastAPIエントリーポイント
+  - `config.py`: 設定ファイル
+  - `services/`: ビジネスロジック
+    - `line_notifier.py`: LINE送信
+    - `quake_service.py`: 地震判定
+    - `health_service.py`: 死活監視
+- `tests/`: 単体テストコード
+- `main.py`: 起動用スクリプト (Entrypoint)
 - `requirements.txt`: 依存ライブラリ
-- `.env`: 環境変数設定ファイル（gitには含めないこと）
+- `.env`: 環境変数設定ファイル
+
+## 🧪 テスト (Testing)
+`pytest` を使って、地震判定ロジックなどが正しく動くか確認できます。
+
+```bash
+# テストの実行
+pytest
+```
 
 ## 📐 アーキテクチャ (Architecture)
 
