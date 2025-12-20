@@ -1,27 +1,29 @@
 import os
+import logging
+from datetime import datetime, timedelta, timezone
+from typing import Dict, Any
+
 import requests
-import json
-from datetime import datetime, timedelta
 from fastapi import FastAPI
 from linebot import LineBotApi
 from linebot.models import TextSendMessage
-from datetime import datetime, timedelta, timezone
-
-# ★ここを追加：.envを読み込むための魔法
 from dotenv import load_dotenv
 
-# ★これ大事：.envファイルを読み込む
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# Load environment variables
 load_dotenv()
 
 app = FastAPI()
 
 # ==========================================
-# 設定エリア (金庫から取り出す！)
+# Configuration
 # ==========================================
 
-# os.getenv("キーの名前") で取り出します
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
-Target_User_ID = os.getenv("TARGET_USER_ID")
+TARGET_USER_ID = os.getenv("TARGET_USER_ID")
 
 # P2P地震情報API (これは公開情報なのでそのままでOK)
 P2P_API_URL = "https://api.p2pquake.net/v2/history?codes=551&limit=1"
@@ -30,31 +32,30 @@ P2P_API_URL = "https://api.p2pquake.net/v2/history?codes=551&limit=1"
 
 
 # ==========================================
-# ルート確認用 (アクセスできるかテストする場所)
+# Health Check Endpoint
 # ==========================================
 @app.get("/")
-def read_root():
-    return {"status": "元気です！ミーアキャット警備中🦦"}
+def read_root() -> Dict[str, str]:
+    return {"status": "Meerkat Bot is running 🦦"}
 
 
 # ==========================================
-# 地震チェック本番 (Schedulerがここを叩きます)
+# Earthquake Check Endpoint
 # ==========================================
 @app.get("/check_quake")
-def check_earthquake():
-    print("🦦 パトロール開始...")
+def check_earthquake() -> Dict[str, Any]:
+    logger.info("🦦 Starting earthquake patrol...")
 
     try:
-        # 1. APIからデータを取得
-        # ヘッダーは念のためつけておきます
+        # 1. Fetch data from API
         headers = {"User-Agent": "MeerkatBot/1.0"}
 
-        print(f"アクセス中: {P2P_API_URL}")  # URL確認
+        logger.info(f"Accessing: {P2P_API_URL}")
         response = requests.get(P2P_API_URL, headers=headers)
 
-        # ★ ここで中身を無理やり表示させる！
-        print(f"ステータスコード: {response.status_code}")
-        print(f"返ってきた中身(先頭500文字): {response.text[:500]}")
+        # Log response status and partial content for debugging
+        logger.info(f"Status Code: {response.status_code}")
+        logger.debug(f"Response Content: {response.text[:500]}")
 
         # エラーがあればここで止まる
         response.raise_for_status()
@@ -68,36 +69,32 @@ def check_earthquake():
 
         latest_quake = data[0]
 
-        # 2. 地震の発生時刻を確認
+        # 2. Check timestamp
         time_str = latest_quake["earthquake"]["time"]
 
-        # JSTタイムゾーンを定義
+        # Define JST timezone
         JST = timezone(timedelta(hours=9))
 
-        # APIの時刻をJSTとして解釈
+        # Parse API timestamp as JST
         quake_time = datetime.strptime(time_str, "%Y/%m/%d %H:%M:%S").replace(tzinfo=JST)
 
-        # 現在時刻もJSTで取得
+        # Get current time in JST
         now = datetime.now(JST)
 
-        # 【判定】「直近の地震」じゃなかったら無視する
-        # ※Cloud Schedulerが1分おきに来るので、少し余裕を持って「過去5分以内」とします
-        # これをしないと、過去の地震を何度も通知しちゃいます
+        # Check if the quake is recent (within last 5 minutes)
         if now - quake_time > timedelta(minutes=5):
-            return {"status": "異常なし（直近の地震ではありません）", "time": time_str}
+            return {"status": "No recent earthquake", "time": time_str}
 
         # --- ここから下は「地震だ！」と判定された時だけ動く ---
 
-        # 3. メッセージ作成
+        # 3. Create message
         max_scale = latest_quake["earthquake"]["maxScale"]
 
-        # ==========================================
-        # 🛑 ここにフィルターを追加！ (震度3未満なら無視)
-        # ==========================================
-        # APIの仕様: 10=震度1, 20=震度2, 30=震度3 ...
+        # Filter: Ignore earthquakes with seismic intensity less than 3
+        # API spec: 10=Scale 1, 20=Scale 2, 30=Scale 3 ...
         if max_scale < 30:
-            print(f"震度が小さいので無視します: 震度スコア {max_scale}")
-            return {"status": "Small quake", "detail": "震度3未満のため通知スキップ"}
+            logger.info(f"Skipping small quake: Scale score {max_scale}")
+            return {"status": "Small quake", "detail": "Skipped notification (Scale < 3)"}
         # ==========================================
 
         # 数字を読みやすい文字に変換
@@ -131,62 +128,60 @@ def check_earthquake():
             f"{tsunami_info}"
         )
 
-        # 4. LINEに送信
+        # 4. Send to LINE
         line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
-        line_bot_api.push_message(Target_User_ID, TextSendMessage(text=message_text))
+        line_bot_api.push_message(TARGET_USER_ID, TextSendMessage(text=message_text))
 
-        print(f"通知しました！: {time_str}")
+        logger.info(f"Notification sent: {time_str}")
         return {"status": "Notified!", "detail": message_text}
 
     except Exception as e:
-        print(f"エラー発生: {e}")
+        logger.error(f"Error occurred: {e}")
         return {"status": "Error", "msg": str(e)}
 
 # ==========================================
-# 監視リスト (URLは金庫から出す！)
+# Watch List
 # ==========================================
 WATCH_LIST = {
-    "Google先生": "https://www.google.com", # Googleは有名なのでそのままでOK
-    "P2P地震API": "https://api.p2pquake.net/v2/history?codes=551&limit=1",
-
-    # ここを変える！
-    "🐰 うさぎ": os.getenv("URL_USAGI"),
-    "🤖🐈 ロボ猫": os.getenv("URL_ROBO"),
+    "Google": "https://www.google.com",
+    "P2P Quake API": "https://api.p2pquake.net/v2/history?codes=551&limit=1",
+    "URL_USAGI": os.getenv("URL_USAGI"),
+    "URL_ROBO": os.getenv("URL_ROBO"),
 }
 
 # ==========================================
-# 🆕 新機能：サイト死活監視 (SRE)
+# Website Health Check Endpoint
 # ==========================================
 @app.get("/check_health")
-def check_website_health():
-    print("🦦 サイト巡回パトロール開始...")
+def check_website_health() -> Dict[str, Any]:
+    logger.info("🦦 Starting website health patrol...")
 
     error_report = []
 
-    # リストにあるURLを順番にノックしていく
+    # Check each URL in the watch list
     for name, url in WATCH_LIST.items():
+        if not url:
+            continue
+
         try:
-            # 3秒待っても返事がなかったらタイムアウト扱いにする
+            # Timeout after 30 seconds
             response = requests.get(url, timeout=30)
 
-            # ステータスコードが200(OK)じゃなかったらエラーリストに入れる
             if response.status_code != 200:
-                error_report.append(f"⚠️ {name}: 応答異常 (Code: {response.status_code})")
+                error_report.append(f"⚠️ {name}: Abnormal response (Code: {response.status_code})")
             else:
-                print(f"✅ {name}: ヨシ！")
+                logger.info(f"✅ {name}: OK")
 
         except Exception as e:
-            # アクセスすらできなかった場合
-            error_report.append(f"❌ {name}: アクセス失敗")
+            error_report.append(f"❌ {name}: Access failed")
 
-    # もしエラーが1つでもあれば、まとめてLINEで報告！
+    # Send alert if errors found
     if error_report:
         line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 
-        # エラーメッセージを改行でつなぐ
-        alert_text = "🦦 異常発生！緊急連絡です！\n\n" + "\n".join(error_report)
+        alert_text = "🦦 Emergency Alert! \n\n" + "\n".join(error_report)
 
-        line_bot_api.push_message(Target_User_ID, TextSendMessage(text=alert_text))
+        line_bot_api.push_message(TARGET_USER_ID, TextSendMessage(text=alert_text))
         return {"status": "Alert Sent", "detail": error_report}
 
     return {"status": "All Green", "detail": "異常なし"}

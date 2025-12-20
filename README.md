@@ -1,5 +1,9 @@
 # 🦦 Meerkat Quake Bot (ミーアキャットの地震警備🦦)
 
+![Python](https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.121.0-009688?logo=fastapi&logoColor=white)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 地震情報の監視と通知、およびWEBサイトの死活監視を行うLINE Botです。
 FastAPIで動作し、Cloud Scheduler等から定期実行されることを想定しています。
 
