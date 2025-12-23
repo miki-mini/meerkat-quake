@@ -1,13 +1,16 @@
 import requests
 import logging
+import json
+import os
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
 class QuakeService:
-    def __init__(self, api_url: str):
+    def __init__(self, api_url: str, persistence_file: str = "data/last_quake.json"):
         self.api_url = api_url
+        self.persistence_file = persistence_file
 
     def check_quake(self) -> Dict[str, Any]:
         """
@@ -30,6 +33,23 @@ class QuakeService:
                 return {"notify": False, "status": "No data"}
 
             latest_quake = data[0]
+            quake_id = latest_quake.get("_id") # Use unique ID from API if available, or generate one
+            # As p2pquake doesn't always guarantee a clean top-level ID in all endpoints,
+            # we can fallback to checking time + hypocenter if ID is missing.
+            # But the 'history' endpoint usually has an ID.
+            if not quake_id:
+                quake_id = latest_quake.get("id")
+
+            # Fallback if no ID found (unlikely but safe)
+            if not quake_id:
+                quake_id = latest_quake["earthquake"]["time"]
+
+            # Load last notified ID
+            last_notified_id = self._load_last_quake_id()
+
+            if quake_id == last_notified_id:
+                 return {"notify": False, "status": "Already notified"}
+
             time_str = latest_quake["earthquake"]["time"]
 
             # Timezone handling
@@ -37,19 +57,30 @@ class QuakeService:
             quake_time = datetime.strptime(time_str, "%Y/%m/%d %H:%M:%S").replace(tzinfo=JST)
             now = datetime.now(JST)
 
-            # Check if recent (5 mins)
-            if now - quake_time > timedelta(minutes=5):
-                return {"notify": False, "status": "No recent earthquake", "time": time_str}
+            # Sanity Check: Ignore if older than 24 hours (to prevent spamming very old quakes on boot)
+            if now - quake_time > timedelta(hours=24):
+                 return {"notify": False, "status": "Too old", "time": time_str}
 
             # Check scale
             max_scale = latest_quake["earthquake"]["maxScale"]
             # API spec: 30 = Scale 3
             if max_scale < 30:
                 logger.info(f"Skipping small quake: Scale score {max_scale}")
+                # Even if small, we should update the ID so we don't keep processing it?
+                # Actually, no. If we skip it, and a NEW update comes for the SAME quake updating scale, we might want to know?
+                # But usually new update has same ID.
+                # Let's save ID even if small to avoid re-processing it every time?
+                # If we don't save it, we will keep checking it every minute.
+                # So we SHOULD update state even if we don't notify.
+                self._save_last_quake_id(quake_id)
                 return {"notify": False, "status": "Small quake", "detail": "Skipped notification (Scale < 3)"}
 
             # Construct message
             message_text = self._create_message(latest_quake, time_str, max_scale)
+
+            # Save ID after successful processing preparation
+            self._save_last_quake_id(quake_id)
+
             return {
                 "notify": True,
                 "message": message_text,
@@ -86,3 +117,27 @@ class QuakeService:
             f"【M】{magnitude}\n\n"
             f"{tsunami_info}"
         )
+
+    def _load_last_quake_id(self) -> Optional[str]:
+        """Load the last notified earthquake ID from file."""
+        if not os.path.exists(self.persistence_file):
+            return None
+
+        try:
+            with open(self.persistence_file, "r") as f:
+                data = json.load(f)
+                return data.get("id")
+        except Exception as e:
+            logger.warning(f"Failed to load persistence file: {e}")
+            return None
+
+    def _save_last_quake_id(self, quake_id: str) -> None:
+        """Save the last notified earthquake ID to file."""
+        try:
+            # ensure directory exists
+            os.makedirs(os.path.dirname(self.persistence_file), exist_ok=True)
+
+            with open(self.persistence_file, "w") as f:
+                json.dump({"id": quake_id, "updated_at": datetime.now().isoformat()}, f)
+        except Exception as e:
+            logger.error(f"Failed to save persistence file: {e}")

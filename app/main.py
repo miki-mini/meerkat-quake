@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+import os
 from .config import LINE_CHANNEL_ACCESS_TOKEN, TARGET_USER_ID, P2P_API_URL, WATCH_LIST
 from .services.line_notifier import LineNotifier
 from .services.quake_service import QuakeService
@@ -6,6 +7,9 @@ from .services.health_service import HealthService
 from typing import Dict, Any
 
 app = FastAPI()
+
+# Ensure data directory exists
+os.makedirs("data", exist_ok=True)
 
 # Initialize Services
 line_notifier = LineNotifier(LINE_CHANNEL_ACCESS_TOKEN, TARGET_USER_ID)

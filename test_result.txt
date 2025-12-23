@@ -1,0 +1,13 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.7, pytest-8.0.0, pluggy-1.6.0 -- C:\Users\mikir\anaconda3\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\mikir\OneDrive\デスクトップ\meerkat_quake
+plugins: anyio-4.11.0, mock-3.15.1
+collecting ... collected 4 items
+
+tests/test_quake_service.py::test_check_quake_new_notification PASSED    [ 25%]
+tests/test_quake_service.py::test_check_quake_already_notified PASSED    [ 50%]
+tests/test_quake_service.py::test_check_quake_too_old PASSED             [ 75%]
+tests/test_quake_service.py::test_persistence_methods PASSED             [100%]
+
+============================== 4 passed in 0.83s ==============================
