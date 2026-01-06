@@ -66,13 +66,8 @@ class QuakeService:
             # API spec: 30 = Scale 3
             if max_scale < 30:
                 logger.info(f"Skipping small quake: Scale score {max_scale}")
-                # Even if small, we should update the ID so we don't keep processing it?
-                # Actually, no. If we skip it, and a NEW update comes for the SAME quake updating scale, we might want to know?
-                # But usually new update has same ID.
-                # Let's save ID even if small to avoid re-processing it every time?
-                # If we don't save it, we will keep checking it every minute.
-                # So we SHOULD update state even if we don't notify.
-                self._save_last_quake_id(quake_id)
+                # Even if small, we should NOT update the ID yet.
+                # If we save it, subsequent updates (e.g. scale correction) with the same ID will be ignored.
                 return {"notify": False, "status": "Small quake", "detail": "Skipped notification (Scale < 3)"}
 
             # Construct message
