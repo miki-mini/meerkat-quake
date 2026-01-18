@@ -1,8 +1,11 @@
 # 🦦 Meerkat Quake Bot (ミーアキャットの地震警備🦦)
 
+![Earthquake Alert](https://img.shields.io/badge/Status-Earthquake_Alert-E91E63?style=for-the-badge&logo=rss)
+![Health Check](https://img.shields.io/badge/Status-Health_Check-4CAF50?style=for-the-badge&logo=google-chrome)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.121.0-009688?logo=fastapi&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green)
+![P2P Quake](https://img.shields.io/badge/API-P2P_Quake-4285F4?style=for-the-badge&logo=google-cloud)
 
 地震情報の監視と通知、およびWEBサイトの死活監視を行うLINE Botです。
 FastAPIで動作し、Cloud Scheduler等から定期実行されることを想定しています。
