@@ -109,3 +109,14 @@ LINE通知のサンプル画像です。
 
 ## 📄 ライセンス
 MIT License
+
+
+---
+English Summary
+
+Concept: A specialized monitoring bot that alerts users via LINE about real-time earthquake data and website uptime status.
+
+Functionality: Integrates the P2P Earthquake API and custom health check logic to provide reliable, automated notifications.
+
+Purpose: Designed as a lightweight, serverless solution for disaster prevention and proactive system maintenance.
+---
