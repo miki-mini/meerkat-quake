@@ -32,7 +32,17 @@ class QuakeService:
             if not data:
                 return {"notify": False, "status": "No data"}
 
-            latest_quake = data[0]
+            # P2P Quake APIは地震予知や津波情報など様々なcodeを返すため、
+            # 地震情報(code: 551)のみを探す
+            latest_quake = None
+            for item in data:
+                if item.get("code") == 551 and "earthquake" in item:
+                    latest_quake = item
+                    break
+
+            if not latest_quake:
+                return {"notify": False, "status": "No earthquake data"}
+
             quake_id = latest_quake.get("_id") # Use unique ID from API if available, or generate one
             # As p2pquake doesn't always guarantee a clean top-level ID in all endpoints,
             # we can fallback to checking time + hypocenter if ID is missing.
