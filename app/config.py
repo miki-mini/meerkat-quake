@@ -13,12 +13,12 @@ if TARGET_USER_ID:
     TARGET_USER_ID = TARGET_USER_ID.strip()
 
 # P2P Quake API
-P2P_API_URL = "https://api.p2pquake.net/v2/history?codes=551&limit=1"
+P2P_API_URL = "https://api.p2pquake.net/v2/history?codes=551&limit=10"
 
 # Watch List for Health Check
 WATCH_LIST = {
     "Google": "https://www.google.com",
-    "P2P Quake API": "https://api.p2pquake.net/v2/history?codes=551&limit=1",
+    "P2P Quake API": "https://api.p2pquake.net/v2/history?codes=551&limit=10",
     "URL_USAGI": os.getenv("URL_USAGI"),
     "URL_ROBO": os.getenv("URL_ROBO"),
 }

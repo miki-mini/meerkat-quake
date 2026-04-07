@@ -32,65 +32,51 @@ class QuakeService:
             if not data:
                 return {"notify": False, "status": "No data"}
 
-            # P2P Quake APIは地震予知や津波情報など様々なcodeを返すため、
-            # 地震情報(code: 551)のみを探す
-            latest_quake = None
+            last_notified_id = self._load_last_quake_id()
+            notifiable_quakes = []
+
             for item in data:
                 if item.get("code") == 551 and "earthquake" in item:
-                    latest_quake = item
-                    break
+                    quake_id = item.get("_id") or item.get("id") or item["earthquake"]["time"]
+                    
+                    if quake_id == last_notified_id:
+                        # 過去に通知済みのIDに到達したら、それより古いデータは確認しない
+                        break
 
-            if not latest_quake:
-                return {"notify": False, "status": "No earthquake data"}
+                    time_str = item["earthquake"]["time"]
+                    try:
+                        JST = timezone(timedelta(hours=9))
+                        quake_time = datetime.strptime(time_str, "%Y/%m/%d %H:%M:%S").replace(tzinfo=JST)
+                        now = datetime.now(JST)
+                        if now - quake_time > timedelta(hours=24):
+                            continue # 古すぎるデータは無視
+                    except Exception as e:
+                        logger.warning(f"Time parsing error: {e}")
+                        pass
+                    
+                    max_scale = item["earthquake"].get("maxScale", -1)
+                    if max_scale >= 30:
+                        notifiable_quakes.append((item, quake_id, time_str, max_scale))
+                    else:
+                        logger.info(f"Skipping small quake: Scale score {max_scale}")
 
-            quake_id = latest_quake.get("_id") # Use unique ID from API if available, or generate one
-            # As p2pquake doesn't always guarantee a clean top-level ID in all endpoints,
-            # we can fallback to checking time + hypocenter if ID is missing.
-            # But the 'history' endpoint usually has an ID.
-            if not quake_id:
-                quake_id = latest_quake.get("id")
+            if not notifiable_quakes:
+                return {"notify": False, "status": "No new notifiable quakes"}
 
-            # Fallback if no ID found (unlikely but safe)
-            if not quake_id:
-                quake_id = latest_quake["earthquake"]["time"]
+            # 条件を満たす最も新しい地震（リストの先頭）を通知対象とする
+            latest_quake, target_quake_id, target_time_str, target_max_scale = notifiable_quakes[0]
 
-            # Load last notified ID
-            last_notified_id = self._load_last_quake_id()
+            # メッセージ作成
+            message_text = self._create_message(latest_quake, target_time_str, target_max_scale)
 
-            if quake_id == last_notified_id:
-                 return {"notify": False, "status": "Already notified"}
-
-            time_str = latest_quake["earthquake"]["time"]
-
-            # Timezone handling
-            JST = timezone(timedelta(hours=9))
-            quake_time = datetime.strptime(time_str, "%Y/%m/%d %H:%M:%S").replace(tzinfo=JST)
-            now = datetime.now(JST)
-
-            # Sanity Check: Ignore if older than 24 hours (to prevent spamming very old quakes on boot)
-            if now - quake_time > timedelta(hours=24):
-                 return {"notify": False, "status": "Too old", "time": time_str}
-
-            # Check scale
-            max_scale = latest_quake["earthquake"]["maxScale"]
-            # API spec: 30 = Scale 3
-            if max_scale < 30:
-                logger.info(f"Skipping small quake: Scale score {max_scale}")
-                # Even if small, we should NOT update the ID yet.
-                # If we save it, subsequent updates (e.g. scale correction) with the same ID will be ignored.
-                return {"notify": False, "status": "Small quake", "detail": "Skipped notification (Scale < 3)"}
-
-            # Construct message
-            message_text = self._create_message(latest_quake, time_str, max_scale)
-
-            # Save ID after successful processing preparation
-            self._save_last_quake_id(quake_id)
+            # 新しいIDを保存
+            self._save_last_quake_id(target_quake_id)
 
             return {
                 "notify": True,
                 "message": message_text,
                 "status": "Earthquake Detected",
-                "time": time_str
+                "time": target_time_str
             }
 
         except Exception as e:
