@@ -25,7 +25,8 @@ def check_earthquake() -> Dict[str, Any]:
     result = quake_service.check_quake()
 
     if result.get("notify"):
-        line_notifier.send_message(result["message"])
+        for msg in result.get("messages", []):
+            line_notifier.send_message(msg)
         result["notified"] = True
     else:
         result["notified"] = False
