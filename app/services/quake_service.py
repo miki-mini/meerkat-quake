@@ -63,20 +63,20 @@ class QuakeService:
             if not notifiable_quakes:
                 return {"notify": False, "status": "No new notifiable quakes"}
 
-            # 条件を満たす最も新しい地震（リストの先頭）を通知対象とする
-            latest_quake, target_quake_id, target_time_str, target_max_scale = notifiable_quakes[0]
-
-            # メッセージ作成
-            message_text = self._create_message(latest_quake, target_time_str, target_max_scale)
-
-            # 新しいIDを保存
-            self._save_last_quake_id(target_quake_id)
+            # 全件通知（最新IDのみ保存して次回以降の重複を防ぐ）
+            messages = [
+                self._create_message(quake, time_str, max_scale)
+                for quake, _, time_str, max_scale in notifiable_quakes
+            ]
+            newest_quake_id = notifiable_quakes[0][1]
+            self._save_last_quake_id(newest_quake_id)
 
             return {
                 "notify": True,
-                "message": message_text,
+                "messages": messages,
                 "status": "Earthquake Detected",
-                "time": target_time_str
+                "count": len(messages),
+                "time": notifiable_quakes[0][2]
             }
 
         except Exception as e:
